@@ -1,0 +1,38 @@
+[
+    {
+        "id": 1,
+        "name": "air conditioner",
+        "owner": "Alan",
+        "production year": 2012,
+        "manufacturer": "NTUEE",
+        "spec": {
+            "type": 1,
+            "power(w)": 130,
+            "abandoned": true
+        }
+    },
+    {
+        "id": 2,
+        "name": "distribution system",
+        "owner": "Bob",
+        "production year": 2015,
+        "manufacturer": "TSMC",
+        "spec": {
+            "type": 3,
+            "power(w)": 300,
+            "abandoned": false
+        }
+    },
+    {
+        "id": 3,
+        "name": "drift eliminator",
+        "owner": "Cindy",
+        "production year": 2022,
+        "manufacturer": "Delta",
+        "spec": {
+            "type": 6,
+            "power(w)": 250,
+            "abandoned": false
+        }
+    }
+]
