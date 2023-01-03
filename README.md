@@ -39,7 +39,7 @@ The discription of VC type:
     * system generate the current time
     * holder "sign" vc with own private key 
     * verifier "verify" vc with holder's public key
-    * transfer vc(related to i)/private key from holder's TPM to verifier's TPM 
+    * add vc(related to i)/private key from holder's TPM to verifier's TPM 
     * remove i's DID from holder's localStorage
 
 2. revoke (Army revokes i):
