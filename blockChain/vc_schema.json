@@ -1,29 +1,29 @@
 {
     "@context": [
-        "https://wid.org/security/vI"
+        "https://w3id.org/security/v1"
     ],
-    "id": "http://example.gov/credentials/3732",
+    "id": "did:example:123456789_A_transfer_B",
     "type": [
-        "'Credential",
-        "ProofOfAgeCredential"
+        "Credential",
+        "Ownership_transfer"
     ],
-    "issuer": "https://dmv.example. gov",
+    "issuer": "did:example:123456789_A_factory",
     "issued": "2010-01-01",
     "claim": {
-        "id": "did: example: ebfeb1f712ebc6f1c27612ec21",
-        "ageOver": 21
+        "holder": "did:example:123456789_A_factory",
+        "verifier": "did:example:123456789_B_factory",
+        "item": "did:example:123456789_gun_stock"
     },
     "revocation": {
-        "id":"hi",
-        "type":"dkaljsdfsdfkey2022"
+        "id": "http://example.gov/revocation/738",
+        "type": "SimpleRevocationList2022"
     },
-    "signaturel": {
+    "signature": {
         "type": "LinkedDataSignature2022",
-        "created": "2022-12-31",
+        "created": "2023-01-02 21:36:50.176441",
         "creator": "http://example.com",
         "domain": "json-ld.org",
-        "nonce": "sdfrerws",
-        "signatureValue": "sgh;aldhg;aljdhgh;adlgh;adighaw;dgih"
+        "nonce": "12345678",
+        "signatureValue": "encryptionOfWholeDocument"
     }
-
 }
