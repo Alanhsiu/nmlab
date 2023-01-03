@@ -3,6 +3,7 @@ import subprocess
 import json
 import zlib
 import sys
+import base64
 import os
 
 nvm_attr_list = [
@@ -43,7 +44,6 @@ class TPM:
         nvm_index,
         owner_val,
         nvm_data,
-        binary_file,
         nv_auth_val,
         nvm_size,
         nvm_attr,
@@ -51,7 +51,6 @@ class TPM:
         self.nvm_index = nvm_index
         self.owner_val = owner_val
         self.nvm_data = nvm_data
-        self.binary_file = binary_file
         self.nv_auth_val = nv_auth_val
         self.nvm_attr = nvm_attr
         self.nvm_size = nvm_size
@@ -59,8 +58,11 @@ class TPM:
         self.rng_input = "16"
         self.Check_IFX_TPM()
         self.OnStart()
-        # self.OnClear()
-        # self.OnGetCapVar()
+
+        self.OnGetCapVar()
+
+    def OnClearAll(self):
+        self.OnClear()
         self.OnChangeAuth()
         self.OnGetCapVar()
 
@@ -126,6 +128,60 @@ class TPM:
                 "'tpm2_changeauth -c lockout " + exec_cmd.lockoutAuth + "' executed \n"
             )
 
+    def Check_IFX_TPM(self):
+        cmd = " ls /dev/tpm0"
+        ps_command = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        command_output = ps_command.stdout.read()
+        retcode = ps_command.wait()
+        if command_output.decode() != "/dev/tpm0\n":
+            print("device not found!")
+            return
+
+        cmd = " tpm2_getcap properties-fixed | grep -A2 'MANUFACTURER' | grep value | grep -Eo '[A-Z]*'"
+        ps_command = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        command_output = ps_command.stdout.read()
+
+        retcode = ps_command.wait()
+        print(command_output.decode())
+
+    def OnClear(self):
+        command_output = exec_cmd.execTpmToolsAndCheck(["tpm2_clear", "-c", "p"])
+        exec_cmd.createProcess("sudo rm *.tss", None)
+        print(str(command_output))
+        print("'tpm2_clear -c p' executed \n")
+        print("++++++++++++++++++++++++++++++++++++++++++++\n")
+
+    def OnGenRNG(self):
+        rand_num = 0
+        no_bytes = self.rng_input
+        assert no_bytes.isdigit(), "Number of bytes is not an integer, try again."
+        no_bytes = abs(int(no_bytes))
+        print(no_bytes)
+        # assuming output type is hex
+        command_output = exec_cmd.execCLI(
+            [
+                "openssl",
+                "rand",
+                "-engine",
+                "tpm2tss",
+                "-hex",
+                str(no_bytes),
+            ]
+        )
+        split_output = command_output.split("\n")
+        for value in split_output:
+            if len(value.lower()) == no_bytes * 2:
+                rand_num = value
+                print("Random Number: " + rand_num + "\n")
+
+        print("'openssl rand -engine tpm2tss -hex " + str(no_bytes) + "' executed \n")
+        print("++++++++++++++++++++++++++++++++++++++++++++\n")
+        return rand_num
+
     def OnNVDefine(self):
 
         assert self.nvm_size.isdigit(), "nvm_size must be an integer"
@@ -183,105 +239,59 @@ class TPM:
         print("'tpm2_nvdefine' executed \n")
         print("++++++++++++++++++++++++++++++++++++++++++++\n")
 
-    def Check_IFX_TPM(self):
-        cmd = " ls /dev/tpm0"
-        ps_command = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        command_output = ps_command.stdout.read()
-        retcode = ps_command.wait()
-        if command_output.decode() != "/dev/tpm0\n":
-            print("device not found!")
-            return
-
-        cmd = " tpm2_getcap properties-fixed | grep -A2 'MANUFACTURER' | grep value | grep -Eo '[A-Z]*'"
-        ps_command = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        command_output = ps_command.stdout.read()
-
-        retcode = ps_command.wait()
-        print(command_output.decode())
-
-    def OnClear(self):
-        command_output = exec_cmd.execTpmToolsAndCheck(["tpm2_clear", "-c", "p"])
-        exec_cmd.createProcess("sudo rm *.tss", None)
-        print(str(command_output))
-        print("'tpm2_clear -c p' executed \n")
-        print("++++++++++++++++++++++++++++++++++++++++++++\n")
-
-    def OnGenRNG(self):
-        rand_num = 0
-        no_bytes = self.rng_input
-        assert no_bytes.isdigit(), "Number of bytes is not an integer, try again."
-        no_bytes = abs(int(no_bytes))
-        print(no_bytes)
-        # assuming output type is hex
-        command_output = exec_cmd.execCLI(
-            [
-                "openssl",
-                "rand",
-                "-engine",
-                "tpm2tss",
-                "-hex",
-                str(no_bytes),
-            ]
-        )
-        split_output = command_output.split("\n")
-        for value in split_output:
-            if len(value.lower()) == no_bytes * 2:
-                rand_num = value
-                print("Random Number: " + rand_num + "\n")
-
-        print("'openssl rand -engine tpm2tss -hex " + str(no_bytes) + "' executed \n")
-        print("++++++++++++++++++++++++++++++++++++++++++++\n")
-        return rand_num
-
-    def OnNVWrite(self):
+    def OnNVWrite(self, json_str):
         nvm_index = self.nvm_index
         owner_val = self.owner_val
         nv_auth_val = self.nv_auth_val
-        nvm_data = compressed_data = ""
-        with open(self.binary_file, "r") as f:
-            json_data = json.load(f)
-            nvm_data = json.dumps(json_data)
-            # print("before", sys.getsizeof(nvm_data))
-            compressed_data = zlib.compress(nvm_data.encode())
-            # print("after:", sys.getsizeof(compressed_data))
-        assert (nvm_index != 0) and (
-            nvm_data != "" and len(compressed_data) <= 2048
-        ), "nvm_index or nvm_data cannot be 0 or nvm_data cannot be greater than 2048 bytes"
+        nvm_size = self.nvm_size
+        nvm_attr = self.nvm_attr
+
+        assert 0 < int(nvm_size) <= 2048, "Maximum NVM size is 2048. Input Again.\n"
+        assert json_str != "", "JSON data is empty. Input Again.\n"
+
+        temp_attr = []
+        for value in nvm_attr:
+            temp_attr.append(value)
+        nvm_attr = "|".join(temp_attr)
+
+        command_output = exec_cmd.execTpmToolsAndCheck(
+            [
+                "tpm2_nvdefine",
+                nvm_index,
+                "-C",
+                "o",
+                "-s",
+                nvm_size,
+                "-a",
+                nvm_attr,
+                "-P",
+                owner_val,
+                "-p",
+                nv_auth_val,
+            ]
+        )
+
+        # with open(self.binary_file, "r") as f:
+        #     json_data = json.load(f)
+        #     nvm_data = json.dumps(json_data)
+        #     # print("before", sys.getsizeof(nvm_data))
+        compressed_data = zlib.compress(json_str.encode())
+        print("compressed data size:", sys.getsizeof(compressed_data))
         with open("nvm_data.gz", "wb") as f:
             f.write(compressed_data)
             f.close()
 
         # if NV auth field is empty
-        if nv_auth_val == "":
-            command_output = exec_cmd.execTpmToolsAndCheck(
-                [
-                    "tpm2_nvwrite",
-                    nvm_index,
-                    "-C",
-                    "o",
-                    "-i",
-                    "nvm_data.gz",
-                    "-P",
-                    owner_val,
-                ]
-            )
-
-        # if NV auth field is specified
-        elif nv_auth_val != "":
-            command_output = exec_cmd.execTpmToolsAndCheck(
-                [
-                    "tpm2_nvwrite",
-                    nvm_index,
-                    "-i",
-                    "nvm_data.gz",
-                    "-P",
-                    nv_auth_val,
-                ]
-            )
+        command_output = exec_cmd.execTpmToolsAndCheck(
+            [
+                "tpm2_nvwrite",
+                nvm_index,
+                "-i",
+                "nvm_data.gz",
+                "-P",
+                nv_auth_val,
+            ]
+        )
 
         print(str(command_output))
         print("'tpm2_nvwrite' executed \n")
@@ -290,8 +300,7 @@ class TPM:
     def OnNVRelease(self):
         nvm_index = self.nvm_index
         owner_val = self.owner_val
-        if nvm_index == 0:
-            return
+        assert nvm_index != 0, "nvm_index cannot be 0"
         command_output = exec_cmd.execTpmToolsAndCheck(
             [
                 "tpm2_nvundefine",
@@ -316,70 +325,41 @@ class TPM:
         read_size = 2048
         json_str = ""
 
-        assert (
-            isinstance(nvm_size, str)
-            and isinstance(nvm_offset, str)
-            and isinstance(read_size, int)
+        assert isinstance(nvm_size, str) and isinstance(
+            nvm_offset, str
         ), "Offset or size is an invalid value (not an integer)."
         assert read_size > 0, "read size cannot be 0 or negative."
-
-        # if NV auth field is empty
-        if nv_auth_val == "":
-            command_output = exec_cmd.execTpmToolsAndCheck(
-                [
-                    "tpm2_nvread",
-                    nvm_index,
-                    "-C",
-                    "o",
-                    "-s",
-                    str(read_size),
-                    "-o",
-                    nvm_offset,
-                    "-P",
-                    owner_val,
-                    "-o",
-                    "nvdata.gz",
-                ]
-            )
-
-        # if NV auth field is specified
-        elif nv_auth_val != "":
-            command_output = exec_cmd.execTpmToolsAndCheck(
-                [
-                    "tpm2_nvread",
-                    nvm_index,
-                    "-s",
-                    str(read_size),
-                    "-o",
-                    nvm_offset,
-                    "-P",
-                    nv_auth_val,
-                    "-o",
-                    "nvdata.gz",
-                ]
-            )
-
-        if command_output.find("ERROR") != -1:
-            print(str(command_output) + "\n")
-            return
-
         command_output = exec_cmd.execTpmToolsAndCheck(
             [
-                "xxd",
+                "tpm2_nvread",
+                nvm_index,
+                "-s",
+                str(read_size),
+                "-o",
+                nvm_offset,
+                "-P",
+                nv_auth_val,
+                "-o",
                 "nvdata.gz",
             ]
         )
-        with open(
-            "/home/pi/optiga-tpm-explorer/TPM_python/working_space/nvdata.gz", "rb"
-        ) as f:
+        print(str(command_output))
+        with open("nvdata.gz", "rb") as f:
             compressed_data = f.read()
             json_str = zlib.decompress(compressed_data).decode()
             f.close()
-        with open("/home/pi/optiga-tpm-explorer/TPM_python/data/output.json", "w") as f:
-            json.dump(json.loads(json_str), f)
-            f.close()
 
         print("'tpm2_nvread' executed \n")
+        print("++++++++++++++++++++++++++++++++++++++++++++\n")
+        return json_str
+
+    def OnNVList(self):
+        exec_cmd.execTpmToolsAndCheck(
+            [
+                "tpm2_nvreadpublic",
+            ]
+        )
+        print("'tpm2_nvreadpublic' executed")
         print("++++++++++++++++++++++++++++++++++++++++++++\n")
 
     def OnList(self):
@@ -460,13 +440,11 @@ class TPM:
         )
         print("++++++++++++++++++++++++++++++++++++++++++++\n")
 
-    def OnGenKeyPair(self):
+    def OnGenKeyPair(self, privKey, pubKey):
         assert exec_cmd.ownerAuth != "", "Owner password is not set"
         file_names = [
-            "rsa2.tss",
-            "rsa2.pub",
-            "mycipher",
-            "mysig",
+            privKey,
+            pubKey,
         ]
 
         # Iterate over the list of file names
@@ -481,11 +459,10 @@ class TPM:
                 exec_cmd.ownerAuth,
                 "-a",
                 "rsa",
-                "rsa2.tss",
+                privKey,
             ]
         )
         print(str(command_output))
-        print("'tpm2tss-genkey -a rsa rsa2.tss' executed \n")
         command_output = exec_cmd.execCLI(
             [
                 "openssl",
@@ -495,52 +472,47 @@ class TPM:
                 "-inform",
                 "engine",
                 "-in",
-                "rsa2.tss",
+                privKey,
                 "-pubout",
                 "-outform",
                 "pem",
                 "-out",
-                "rsa2.pub",
+                pubKey,
             ]
         )
-        print(
-            "'openssl rsa -engine tpm2tss -inform engine -in rsa2.tss -pubout -outform pem -out rsa2.pub' executed \n"
-        )
-        print("rsa.tss contains: \n")
-        filehandle = open("rsa2.tss", "r")
-        print(filehandle.read() + "\n")
-        filehandle.close()
+        print(str(command_output))
+        pubKey_str = ""
+        with open(pubKey) as f:
+            pubKey_str = f.read()
+            f.close()
+        print(pubKey_str)
         print("++++++++++++++++++++++++++++++++++++++++++++\n")
+        return pubKey_str
 
-    def OnEnc(self):
-        self.data_input = "test1234"
-        assert self.data_input != "", "Input data is not set"
-        input_data = self.data_input
+    def OnEnc(self, privKey, input_data, encryped_file):
+        assert input_data != "", "Input data can not be empty"
         data_file = open("engine_data.txt", "w")
         data_file.write(input_data)
         data_file.close()
-        exec_cmd.execCLI(
+        command_output = exec_cmd.execCLI(
             [
                 "openssl",
                 "pkeyutl",
-                "-pubin",
+                "-prvin",
                 "-inkey",
-                "rsa2.pub",
+                privKey,
                 "-in",
                 "engine_data.txt",
                 "-encrypt",
                 "-out",
-                "mycipher",
+                encryped_file,
             ]
         )
-        print(
-            "'openssl pkeyutl -pubin -inkey rsa2.pub -in engine_data.txt -encrypt -out mycipher' executed \n"
-        )
-        print("mycipher contains:")
+        print(command_output)
         command_output = exec_cmd.execCLI(
             [
                 "xxd",
-                "mycipher",
+                encryped_file,
             ]
         )
         print(command_output)
@@ -565,6 +537,76 @@ class TPM:
         print("++++++++++++++++++++++++++++++++++++++++++++\n")
         return command_output.decode()
 
+    def OnSign(self, prevKey, input_data):
+        assert input_data != "", "Input data can not be empty"
+        data_file = open("engine_data.txt", "w")
+        data_file.write(input_data)
+        data_file.close()
+        # ~ exec_cmd.execCLI([
+        # ~ "openssl", "pkeyutl",
+        # ~ "-engine", "tpm2tss",
+        # ~ "-keyform", "engine",
+        # ~ "-inkey", "rsa2.tss",
+        # ~ "-in", "engine_data.txt",
+        # ~ "-sign",
+        # ~ "-out", "mysig",
+        # ~ ])
+
+        f = open("temp.conf", "w+")
+        f.write(exec_cmd.openssl_cnf)
+        f.close()
+
+        # cmd = f"OPENSSL_CONF=temp.conf openssl pkeyutl -engine tpm2tss -keyform engine -inkey {prevKey} -sign -in engine_data.txt -out mysign"
+        cmd = f"OPENSSL_CONF=temp.conf openssl pkeyutl -engine tpm2tss -keyform engine -inkey {prevKey} -sign -in engine_data.txt"
+        ps_command = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+        command_output = ps_command.stdout.read()
+        retcode = ps_command.wait()
+
+        print(cmd + " executed")
+        # print("mysign contains:")
+        # command_output = exec_cmd.execCLI(
+        #     [
+        #         "xxd",
+        #         "mysign",
+        #     ]
+        # )
+        with open("mysign", "rb") as f:
+            sign = f.read()
+        encoded_sign = base64.b64encode(sign)
+        # print(encoded_data)
+        # print("command output::", command_output)
+        print("++++++++++++++++++++++++++++++++++++++++++++\n")
+        return encoded_sign
+
+    def OnVerify(self, data_to_verify, signature, publickey):
+        assert data_to_verify != "", "Input data can not be empty"
+        data_file = open("engine_data.txt", "w")
+        data_file.write(data_to_verify)
+        data_file.close()
+        with open("mysig", "wb") as f:
+            f.write(base64.b64decode(signature))
+
+        command_output = exec_cmd.execCLI(
+            [
+                "openssl",
+                "pkeyutl",
+                "-pubin",
+                "-inkey",
+                publickey,
+                "-verify",
+                "-in",
+                "engine_data.txt",
+                "-sigfile",
+                "mysig",
+            ]
+        )
+        print(str(command_output))
+        # print(type(command_output))
+        # print("'openssl pkeyutl -pubin -inkey rsa2.pub -verify -in engine_data.txt -sigfile mysig' executed \n")
+        print("++++++++++++++++++++++++++++++++++++++++++++\n")
+
 
 if __name__ == "__main__":
     exec_cmd.checkDir()
@@ -572,17 +614,19 @@ if __name__ == "__main__":
         nvm_index="0x1500016",
         owner_val="owner123",
         nvm_data="",
-        binary_file="/home/pi/optiga-tpm-explorer/TPM_python/data/tmp.json",
         nv_auth_val="nv123",
         nvm_size="2048",
         nvm_attr=["authread", "authwrite"],
     )
-    # tpm.OnClear()
-    # tpm.OnGenRNG() ---- done
-    # tpm.OnNVDefine() --- done
-    # tpm.OnNVWrite() --- done
-    # tpm.OnNVRead() --- done
-    # tpm.OnCreatePrimary()
-    # tpm.OnGenKeyPair() --- done
-    # tpm.OnEnc() --- done
-    # tpm.OnDec() --- done
+    # tpm.OnNVList() #---- done
+    # tpm.OnGenRNG() #---- done
+    # tpm.OnNVDefine() #--- done
+    # tpm.OnNVWrite("test1234567")  # --- done
+    # tpm.OnNVRead()  # --- done
+    # tpm.OnCreatePrimary() # --- done
+    # tpm.OnGenKeyPair(
+    #     "/home/pi/optiga-tpm-explorer/test/rsa2.tss",
+    #     "/home/pi/optiga-tpm-explorer/test/rsa2.pub",
+    # )  # --- done
+    # signature = tpm.OnSign("/home/pi/optiga-tpm-explorer/test/rsa2.tss", "test1234")
+    # tpm.OnVerify("test1234", signature, "/home/pi/optiga-tpm-explorer/test/rsa2.pub")
