@@ -40,16 +40,18 @@ class VC_transfer:
         self.VC["signature"]["type"] = "12345678"
         self.VC["signature"]["type"] = "LinkedDataSignature2022"
         vc = json.dumps(self.VC)
-        self.VC["signature"]["signatureValue"] = signVC(vc)
+
+        ##### sign VC #####
+        dataFolder = "../data"
+        holderPrivateKey = os.path.join(dataFolder, self.holder, "TPM", self.holder+".key")
+        self.VC["signature"]["signatureValue"] = signVC(vc, holderPrivateKey)
 
         ##### write VC into TPM #####
-
         vc = json.dumps(self.VC)
-        dataFolder = "../data"
         vcFile = os.path.join(dataFolder, self.verifier, "TPM", "vc_"+self.item+".json") # stored in verifier's TPM
         with open(vcFile, "w") as outfile:
             outfile.write(vc)
-        print("new transaction added")
+        print("vc transfer from", holder, "to", verifier)
 
 class VC_revoke:
     def __init__(self, issuer, holder, item):
@@ -90,11 +92,9 @@ class VC_revoke:
         vc = json.dumps(self.VC)
         self.VC["signature"]["signatureValue"] = signVC(vc)
 
-        ##### write VC into TPM #####
+        ##### remove DID from TPM #####
 
-        vc = json.dumps(self.VC)
         dataFolder = "../data"
-        vcFile = os.path.join(dataFolder, self.holder, "TPM", "vc_"+self.issuer+".json") # stored in holder's TPM
-        with open(vcFile, "w") as outfile:
-            outfile.write(vc)
+        didFile = os.path.join(dataFolder, self.id, "localStorage", self.id+".json")
+        os.remove(didFile)
         print("new transaction added")
