@@ -1,11 +1,11 @@
 import os
 import json
-from basic import createRandomString, generateKeyPair
+from basic import createRandomString, generateKeyPair, createUniqueDID
 class Item:
     def __init__(self, owner):
 
         self.owner = owner
-        self.id = createRandomString()
+        self.id = createUniqueDID()
 
         dataFolder = "../data"
         self.ownerFolder = os.path.join(dataFolder, self.owner)
