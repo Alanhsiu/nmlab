@@ -28,49 +28,49 @@ gun = Item(D.did) # 彈匣
 
 
 ##### Step 2-1: A transfer item to D #####
-issuer = "did:A_factory"
-verifier = "did:D_factory"
-holder = "did:A_factory"
+issuer = A.did
+verifier = D.did
+holder = A.did
 item_did = barrel.id
 action = "Ownership_transfer"
 vc1 = VC_transfer(issuer, verifier, holder, item_did)
 
-# ##### Step 2-2: B transfer item to D #####
-# issuer = "did:B_factory"
-# verifier = "did:D_factory"
-# holder = "did:B_factory"
-# item_did = gunstock.id
-# action = "Ownership_transfer"
-# vc2 = VC_transfer(issuer, verifier, holder, item_did)
+##### Step 2-2: B transfer item to D #####
+issuer = B.did
+verifier = D.did
+holder = B.did
+item_did = gunstock.id
+action = "Ownership_transfer"
+vc2 = VC_transfer(issuer, verifier, holder, item_did)
 
-# ##### Step 2-3: C transfer item to D #####
-# issuer = "did:C_factory"
-# verifier = "did:D_factory"
-# holder = "did:C_factory"
-# item_did = magazine.id
-# action = "Ownership_transfer"
-# vc3 = VC_transfer(issuer, verifier, holder, item_did)
+##### Step 2-3: C transfer item to D #####
+issuer = C.did
+verifier = D.did
+holder = C.did
+item_did = magazine.id
+action = "Ownership_transfer"
+vc3 = VC_transfer(issuer, verifier, holder, item_did)
 
-# ##### Step 3: D transfer item to E #####
-# issuer = "did:G_factory"
-# verifier = "did:E_factory"
-# holder = "did:D_factory"
-# item_did = gun.id
-# action = "Ownership_transfer"
-# vc4 = VC_transfer(issuer, verifier, holder, item_did)
+##### Step 3: D transfer item to E #####
+issuer = G.did
+verifier = E.did
+holder = D.did
+item_did = gun.id
+action = "Ownership_transfer"
+vc4 = VC_transfer(issuer, verifier, holder, item_did)
 
-# ##### Step 4: E transfer item to F #####
-# issuer = "did:G_factory"
-# verifier = "did:F_factory"
-# holder = "did:E_factory"
-# item_did = gun.id
-# action = "Ownership_transfer"
-# vc5 = VC_transfer(issuer, verifier, holder, item_did)
+##### Step 4: E transfer item to F #####
+issuer = G.did
+verifier = F.did
+holder = E.did
+item_did = gun.id
+action = "Ownership_transfer"
+vc5 = VC_transfer(issuer, verifier, holder, item_did)
 
 # ##### Step 5: F revoke item #####
-# issuer = "did:G_factory"
-# verifier = "did:G_factory"
-# holder = "did:E_factory"
+# issuer = G.did
+# verifier = G.did
+# holder = E.did
 # item_did = gun.id
 # action = "Revocation"
-# vc6 = VC_revoke(issuer, verifier, holder, item_did)
+# vc6 = VC_revoke(issuer, holder, item_did)

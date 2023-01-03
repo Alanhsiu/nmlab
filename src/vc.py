@@ -90,7 +90,11 @@ class VC_revoke:
         self.VC["signature"]["type"] = "12345678"
         self.VC["signature"]["type"] = "LinkedDataSignature2022"
         vc = json.dumps(self.VC)
-        self.VC["signature"]["signatureValue"] = signVC(vc)
+
+        ##### sign VC #####
+        dataFolder = "../data"
+        holderPrivateKey = os.path.join(dataFolder, self.holder, "TPM", self.holder+".key")
+        self.VC["signature"]["signatureValue"] = signVC(vc, holderPrivateKey)
 
         ##### remove DID from TPM #####
 
